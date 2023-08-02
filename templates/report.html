@@ -1,0 +1,141 @@
+
+
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-gH2yIJqKdNHPEq0n4Mqa/HGKIhSkIHeL5AyhkYV8i59U5AR6csBvApHHNl/vI1Bx" crossorigin="anonymous">
+    <style>
+        html{
+            /* postion:absolute; */
+            top:0;
+            left:0;
+            right:0;
+            bottom:0;
+            overflow:auto;
+            /* background-image: linear-gradient(#FFEBD2, #FFA364); */
+        /* background: linear-gradient(#FFEBD2,#FFA364)no-repeat center fixed; this would be your background setup */
+        }
+
+        body{
+            margin: 70px 50px 70px 50px;
+            background-color: #FFEBD2
+        }
+        .title{
+            text-align: center;
+            color: #39038c
+        }
+        .heading{
+            color: #39038c;
+            text-decoration: underline;
+
+        }
+
+        @media print {
+         .new-page {
+            page-break-before: always;
+         }
+        }
+
+        keep-together {
+            page-break-inside: avoid;
+        }
+
+        .break-before {
+            page-break-before: always;
+        }
+        .break-after {
+            page-break-after: always;
+        }
+
+    </style>
+</head> 
+<body>
+    <h1 class="title">
+      <!-- <img src="./static/img.png" alt="Your Logo" 
+             style="height: 130px; width: 130px"> <br> -->
+        <u>
+            MONTHLY REPORT
+        </u>
+    </h1>
+    <p style="text-align: right"><u>DATE: {{today}}</u></p>
+    <span>Hi, {{username}}</span>
+    <br><br>
+    <p>Your monthly report for the month of {{month}} is ready.</p>
+    <p>Below is a monthly summary of your account and bookings. <br>Kindly have a look at them.</p>
+    <!-- PAGE BREAK START  -->
+    <div class="break-after"></div><br><br>
+    <!-- PAGE BREAK END  -->
+
+    <!-- <img src="./static/img.png" alt="Your Logo"  
+            style="height: 90px; width: 90px; float: right"> <br> -->
+
+    <h1 class="heading"> Your Account </h1>
+    <table class="table table-striped">
+        <thead>
+        <tr>
+            <th scope="col">#</th>
+            <th scope="col">Key</th>
+            <th scope="col">Value</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for key, value in account_details.items() %}
+        <tr>
+            <th scope="row">1</th>
+            <td>{{ key }}</td>
+            <td>{{ value }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <!-- PAGE BREAK START  -->
+    <div class="break-after"></div><br><br>
+    <!-- PAGE BREAK END  -->
+    <!-- <img src="./static/img.png" 
+            style="height: 90px; width: 90px; float: right"> <br> -->
+    <h2 class="heading">Your bookings</h2>
+
+    {%if bookings | length>0 %}
+    <table class="table table-striped">
+        <thead>
+        <tr>
+            <th scope="col">S no</th>
+            <th scope="col">Show Name</th>
+            <th scope="col">Show Time</th>
+            <th scope="col">Show Date</th>
+            <th scope="col">Booking Time</th>
+            <th scope="col">Venue Name</th>
+            <th scope="col">No. of tickets booked</th>
+            <th scope="col">Total price</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for booking in bookings %}
+        <tr>
+             <th scope="row">{{loop.index}}</th>
+            <td>{{ booking.show_name }}</td>
+            <td>{{ booking.show_time }}</td>
+            <td>{{ booking.show_date }}</td>
+            <td>booked on: {{booking.booking_time}}</td>
+            <td>{{ booking.venue_name }}</td>
+            <td>{{ booking.num_tickets }}</td>
+            <td>{{ booking.total_price }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <h4> YOU DON'T HAVE ANY BOOKINGS YET.</h4>
+    {% endif %}
+
+    <!-- PAGE BREAK START  -->
+    <div class="break-after"></div><br><br>
+    <!-- PAGE BREAK END  -->
+    <!-- <img src="./static/img.png"
+            style="height: 90px; width: 90px; float: right"> <br> -->
+
+
+
+</body>
+</html>

@@ -1,0 +1,275 @@
+
+body {
+    background: linear-gradient(#FFEBD2,#FFA364)no-repeat center fixed
+  }
+
+div.card.elevation-12 {
+    background-color: rgba(141, 67, 55,0);
+    border-width: 0px;
+  }
+  
+button.btn {
+    background-color:rgba(141, 67, 55);
+    border-color: rgba(141, 67, 55);
+      cursor: pointer;
+    color:#ddd;
+  }
+
+button.btn:hover{
+    background-color: rgba(141, 67, 55,0.7);
+    
+  }
+  
+.btn-secondary {
+    color: white;
+    background-color: rgba(141, 67, 55);
+    border-color:rgba(141, 67, 55);
+}
+.btn-secondary:hover{
+  background-color: rgba(141, 67, 55,0.7);
+}
+
+
+
+input[type="text"] {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 5px;
+    width: 100%;
+    outline: none;
+  }
+
+  input[type="text"].search-text {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 5px;
+    width: 30%;
+    outline: none;
+  }
+  
+input[type="text"]:focus {
+    box-shadow: 0 0 8px 0 rgba(0,0,0,0.2);
+  }
+
+  input[type="number"] {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 5px;
+    width: 100%;
+    outline: none;
+  }
+  
+input[type="number"]:focus {
+    box-shadow: 0 0 8px 0 rgba(0,0,0,0.2);
+  }
+
+  input[type="number"].search-text {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 5px;
+    width: 30%;
+    outline: none;
+  }
+  
+.btn-primary {
+    background-color:rgba(97, 45, 37, 0.7);
+    border-color: rgb(97, 45, 37);
+    color: #fff;
+}
+
+.btn-primary:hover{
+  background-color: rgba(141, 67, 55,0.7);
+  
+}
+
+a.btn.btn-primary a {
+  background-color:rgba(97, 45, 37, 0.7);
+  border-color: rgb(97, 45, 37);
+  color: #fff;
+}
+
+a.btn.btn-primary :hover{
+background-color: rgba(141, 67, 55,0.7);
+
+}
+
+.btn-primary:active{
+  background-color: rgba(141, 67, 55,0.7);
+}
+
+.btn-warning {
+  background-color:rgba(252, 71, 25, 0.6);
+  border-color: rgba(252, 71, 25,0.4);
+  color: #fff;
+}
+
+.btn-warning:hover{
+  background-color: rgba(252, 71, 25, 0.5);
+}
+
+.btn-warning:disabled{
+  background-color:rgba(252, 71, 25, 0.6);
+  border-color: rgba(252, 71, 25,0.4);
+  color: #fff;
+}
+
+.btn-danger {
+  background-color:rgba(97, 45, 37, 0.7);
+  border-color: rgb(97, 45, 37);
+  color: #fff;
+}
+
+.btn-danger:hover{
+background-color: rgba(141, 67, 55,0.7);
+color:#000000
+} 
+
+.btn-reset a{
+  background-color:rgba(141, 67, 55);
+  border-color: rgba(141, 67, 55);
+  cursor: pointer;
+  color:#ddd
+
+}
+
+
+
+a {
+  color: rgba(97, 45, 37, 0.7);
+  text-decoration: none;
+  background-color: transparent;
+  
+}
+
+nav {
+    /* background: rgba(175,79,65,0.5); */
+    
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 80px;
+    padding: 0 20px;
+    margin-top: 7px;
+}
+  
+.navbar-logo img {
+      height: 75px;
+      padding-right: 500px;
+}
+    
+.navbar-links {
+      list-style: none;
+      display: flex;
+    align-items: center;
+}
+    
+.navbar-links li {
+      margin-right: 20px;
+      align-items: center;
+    margin-top: 9px;
+    color:rgb(70, 15, 2);
+}
+    
+.navbar-links li a {
+  color: #000000;
+  text-decoration: none;
+  font-size: 18px;
+  transition: all 0.3s ease;
+}
+    
+.navbar-links li a:hover {
+  color: #8f7462;
+}
+
+.navbar-links li input {
+  border-radius: 20px;
+  background-color: #FFA364;
+  border: none;
+  padding: 12px 15px;
+  margin: 8px 0;
+  width: 80%;
+}
+
+thead {
+  display: table-header-group;
+  vertical-align: middle;
+  border-color: rgba(97, 45, 37, 0.7);
+
+}
+
+.thead-dark {
+  display: table-header-group;
+  vertical-align: middle;
+  border-color: rgba(97, 45, 37, 0.7);
+
+}
+div.ven {
+	background-color: transparent;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+  padding: 50px 50px;
+  
+}
+
+.invoice {
+	display: block;
+	background-color: transparent;
+	border-radius: 10px;
+  	box-shadow: 0 14px 28px rgba(0,0,0,0.25), 
+			0 10px 10px rgba(0,0,0,0.22);
+	position: relative;
+	overflow: hidden;
+	margin: 20px;
+	height : 90%;
+	align-self: center;
+}
+
+.invoice h1{
+	color: rgb(97, 45, 37);
+	font-size: 30px;
+	align-self: auto;
+	margin-top: 30px;
+	margin-left: 100px;
+}
+
+.invoice-details {
+	position: absolute;
+	top: 0;
+	height: 100%;
+	transition: all 0.6s ease-in-out;
+	margin: 100px;
+	margin-top: 150px;
+	margin-left: 350px;
+}
+
+.invoice-details p{
+	font-size: 17px;
+}
+
+.invoice-details table tr td{
+	font-size: 18px;
+	margin : 10px;
+}
+
+.invoice img {
+	position: absolute;
+	top: 0;
+	height: 50%;
+	margin-top: 130px;
+	margin-left: 100px;
+	margin-bottom: 100px;
+	margin-left: 100px;
+}
+
+#profileImage {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: rgba(39, 18, 15, 0.788);
+  font-size: 55px;
+  color: #fff;
+  text-align: center;
+  line-height: 150px;
+  margin: 20px 110px;
+}

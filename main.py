@@ -1,4 +1,5 @@
 from flask import Flask, abort, render_template,url_for,request,redirect,flash, jsonify,request
+from flask_caching import Cache
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_migrate import Migrate
@@ -6,194 +7,99 @@ from flask_login import UserMixin, LoginManager,login_required, login_user, logo
 from flask_jwt_extended import JWTManager,create_access_token,jwt_required,get_jwt,get_jwt_identity
 #from sqlalchemy.orm import relationship
 from datetime import datetime
-#from models import db, User, Post, Authentication
 from flask_restful import Resource, reqparse,Api
 from flask import jsonify, make_response
 from flask_cors import CORS
-from celery_worker import *
-from celery_tasks import *
+from time import sleep
+import time
+import logging
+import os
+import json
+import csv
+from flask import session, redirect,url_for
+# from celery import Celery
+from flask import send_file
+# from models import *
+from json import dumps
+from httplib2 import Http
+from datetime import datetime as dt
+from datetime import date
+
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email.encoders import *
+from email import encoders
+
 from models import *
+from mail import *
+from monthly_report import *
+# from cache_instance import current_cache_inst as cache
+
+
+from celery import shared_task
+from celery import Celery, Task
+from celery.schedules import crontab
 # from cache_instance import current_cache_inst as cache
 from jinja2 import Template
 # from flask_caching import Cache
 
 
-#app.app_context().push()
-#app.app_context()
-# with app.app_context():
-#     users = User.query.all()
-#     print(users)
+def celery_init_app(app: Flask) -> Celery:
+    class FlaskTask(Task):
+        def _call_(self, *args: object, **kwargs: object) -> object:
+            with app.app_context():
+                return self.run(*args, **kwargs)
 
-
+    celery_app = Celery(app.name, task_cls=FlaskTask,broker=app.config['CELERY_BROKER_URL'])
+    celery_app.config_from_object(app.config["CELERY"])
+    celery_app.set_default()
+    app.extensions["celery"] = celery_app
+    return celery_app
 
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
 app.config['SECRET_KEY'] = 'secret-key'
+app.config['CELERY_BROKER_URL'] = 'redis://localhost'
+app.config['result_backend'] = 'redis://localhost'
+app.config["CACHE_TYPE"]="RedisCache"
+app.config["CACHE_REDIS_HOST"]= "localhost"
+app.config["CACHE_REDIS_PORT"]= 6379
 api = Api(app)
 CORS(app)
 jwt = JWTManager(app)
-db = SQLAlchemy(app)
+# db = SQLAlchemy(app)
+db.init_app(app)
 migrate=Migrate(app,db)
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = 'login'
 
+# app.config.from_mapping(cache_mapping)  # Setup Redis Cache
+cache = Cache(app)  # cache instance
 app.app_context().push()
 
-# app.config.update(
-#     CACHE_TYPE= 'RedisCache',
-#     CACHE_REDIS_HOST='localhost',
-#     CACHE_REDIS_PORT=6379
-#     )
+login_manager = LoginManager()
+login_manager.init_app(app)
 
-# app.config.update(CELERY_CONFIG={
-#     'broker_url': 'redis://localhost:6379/1',
-#     'result_backend': 'redis://localhost:6379/1',
-#     'timezone': 'Asia/Kolkata'
-# })
+login_manager.login_view = 'login'
 
-# app.config['broker_url'] = 'redis://localhost:6379/0'
-# app.config['result_backend'] = 'redis://localhost:6379/1'
+celery = Celery(app.name, broker=app.config['CELERY_BROKER_URL'])
+# celery = celery_init_app(app)
+celery.conf.update(app.config)
+    
+celery.conf.beat_schedule = {
+"my_function_every_1_minutes": {
+    "task": "monthly_report",
+    "schedule": crontab(minute="*/1"),
+    # "schedule": crontab(minute="0", hour="0", day="last", month="*"),
+},
+"my_function_every_2_minutes": {
+    "task": "webhook",
+    "schedule": crontab(minute="*/1"),
+    # "schedule": crontab(minute="59", hour="23", day="*"),
+},
+}
 
-# cache=Cache(app)
-
-#celery = make_celery(app)
-# celery_inst = make_celery(app)
-# app.app_context().push()
-
-# @celery.task()
-# def add_together(a, b):
-#     return a + b
-
-# class Admin(UserMixin,db.Model):
-#     id = db.Column(db.Integer, primary_key=True,autoincrement=True)
-#     username = db.Column(db.String(80), unique=True, nullable=False)
-#     password=db.Column(db.String(128), nullable=True)
-#     password_hash = db.Column(db.String(128))
-#     email=db.Column(db.String(80),nullable=False)
-#     venues=db.relationship('Venue',backref='admin', cascade='all, delete-orphan')
-#     shows=db.relationship('Show',backref='admin', cascade='all, delete-orphan')
-
-#     def delete(self):
-#         for venue in self.venues:
-#             db.session.delete(venue)
-#         for show in self.shows:
-#             db.session.delete(show)
-#         db.session.delete(self)
-#         db.session.commit()
-
-#     def set_password(self, password):
-#         self.password_hash = generate_password_hash(password)
-
-#     def check_password(self, password):
-#         return check_password_hash(self.password_hash, password)
-
-# class User(UserMixin,db.Model):
-#     id = db.Column(db.Integer, primary_key=True,autoincrement=True)
-#     username = db.Column(db.String(80), unique=True, nullable=False)
-#     password=db.Column(db.String(128), nullable=True)
-#     password_hash = db.Column(db.String(128))
-#     email=db.Column(db.String(80),nullable=False)
-#     bookings=db.relationship('Booking', backref='booking_id', cascade='all, delete-orphan')
-
-#     def to_dict(self):
-#         return {
-#             'id': self.id,
-#             'name': self.username,
-#             'email': self.email
-#        }
-
-
-#     def delete(self):
-#         for booking in self.bookings:
-#             db.session.delete(booking)
-#         db.session.delete(self)
-#         db.session.commit()
-
-#     def is_admin(self):
-#         admin = Admin.query.filter_by(username=self.username, email=self.email).first()
-#         if admin:
-#             return True
-#         else:
-#             return False
-
-#     def set_password(self, password):
-#         self.password_hash = generate_password_hash(password)
-
-#     def check_password(self, password):
-#         return check_password_hash(self.password_hash, password)
-
-# class Venue(UserMixin,db.Model):
-#     id=db.Column(db.Integer,primary_key=True,autoincrement=True)
-#     name = db.Column(db.String(80), nullable=False)
-#     place = db.Column(db.String(80), nullable=False)
-#     capacity= db.Column(db.Integer, nullable=False)
-#     shows=db.relationship('Show',backref='show_name')
-#     admin_id=db.Column(db.Integer,db.ForeignKey('admin.id'),nullable=False,)
-
-#     def to_dict(self):
-#         return {
-#             'id': self.id,
-#             'name': self.name,
-#             'place': self.place,
-#             'capacity': self.capacity,
-#             'admin_id': self.admin_id
-#        }
-
-
-# class Show(UserMixin,db.Model):
-#     id=db.Column(db.Integer,primary_key=True,autoincrement=True)
-#     name = db.Column(db.String(80), nullable=False)
-#     rating= db.Column(db.REAL, nullable=False)
-#     tags= db.Column(db.String, nullable=False)
-#     ticket_price= db.Column(db.REAL, nullable=False)
-#     available_tickets= db.Column(db.Integer, nullable=False)
-#     date = db.Column(db.String, nullable=False)
-#     time = db.Column(db.String, nullable=False)
-#     venue_id= db.Column(db.Integer ,db.ForeignKey('venue.id',ondelete='CASCADE'), nullable=False)
-#     admin_id=db.Column(db.Integer,db.ForeignKey('admin.id'),nullable=False)
-#     #bookings = db.relationship('Booking', backref='shows', lazy='dynamic')
-
-#     def to_dict(self):
-#         return {
-#             'id': self.id,
-#             'name': self.name,
-#             'rating': self.rating,
-#             'tags': self.tags,
-#             'ticket_price': self.ticket_price,
-#             'available_tickets': self.available_tickets,
-#             'date': self.date,
-#             'time': self.time,
-#             'venue_id': self.venue_id,
-#             'admin_id': self.admin_id
-#         }
-
-
-# class Booking(UserMixin,db.Model):
-#     id = db.Column(db.Integer, primary_key=True,autoincrement=True)
-#     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-#     show_id = db.Column(db.Integer, db.ForeignKey('show.id'), nullable=False)
-#     num_tickets = db.Column(db.Integer, nullable=False)
-#     # booking_time = db.Column(db.String, default=datetime.utcnow)
-#     booking_time = db.Column(db.String)
-
-#     total_price=db.Column(db.REAL, nullable=False)
-
-#     user = db.relationship('User', backref='booking')
-#     show = db.relationship('Show', backref='booking')
-
-#     def to_dict(self):
-#         return{
-#             'num_tickets': self.num_tickets,
-#             'total_price': self.total_price,
-#             'show_name': self.show.name,
-#             'booking_time': self.booking_time,
-#             'user_id': self.user.id,
-#             # 'venue_name': self.venue.name,
-#             'show_date': self.show.date,
-#             'show_time': self.show.time
-#         }
 
 # dt_str = booking_time.isoformat()
 
@@ -273,7 +179,7 @@ class AdminLoginResource(Resource):
 
     def delete(self, admin_id):
         # Fetch the user details using the user ID
-        admin = User.query.get(admin_id)
+        admin = Admin.query.get(admin_id)
 
         if admin:
             # Delete the user from the database
@@ -321,6 +227,10 @@ class UserLoginResource(Resource):
 
         if user:
             # Delete the user from the database
+            current_session = db.session.object_session(user)
+            if current_session is not None and current_session != db.session:
+            # Detach the booking from the old session
+                current_session.expunge(user)
             db.session.delete(user)
             db.session.commit()
 
@@ -436,14 +346,19 @@ class VenueResource(Resource):
         name = request.json.get('name')
         place = request.json.get('place')
         capacity = request.json.get('capacity')
-
+        print(name,place,capacity)
         if name:
             venue.name = name
+            db.session.commit()
         if place:
             venue.place = place
+            db.session.commit()
         if capacity:
             venue.capacity = capacity
+            print(venue.capacity)
+            db.session.commit()
 
+        
         db.session.commit()
 
         return {'message': 'Venue updated successfully'}, 200
@@ -458,6 +373,11 @@ class VenueResource(Resource):
         venue = Venue.query.get(venue_id)
         if not venue:
             return {'message': 'Venue not found'}, 404
+        
+        current_session = db.session.object_session(venue)
+        if current_session is not None and current_session != db.session:
+            # Detach the booking from the old session
+            current_session.expunge(venue)
 
         db.session.delete(venue)
         db.session.commit()
@@ -543,14 +463,26 @@ class ShowResource(Resource):
         
 
     @jwt_required()
-    def put(self, show_id):
+    def put(self,show_id, venue_id=None):
+        # db = SQLAlchemy(app)
         admin = Admin.query.get(get_jwt_identity())
         if not admin:
             return {'message': 'Admin not found'}, 404
 
-        show = Show.query.get(show_id)
+        show = Show.query.filter_by(id=show_id).first()
+        print(show)
+        print(type(show))
+        # breakpoint()
+        print(show.id,show.name)
+        # venue=Venue.query.get(show_id)
+        # print("")
         if not show:
             return {'message': 'Show not found'}, 404
+        
+        if venue_id:
+            venue = Venue.query.get(venue_id)
+        if not venue:
+            return {'message': 'Venue not found'}, 404
         
         #show = Show.query.filter_by(id=show_id).first()
         username = admin.username
@@ -564,6 +496,8 @@ class ShowResource(Resource):
             #show.venue_id = request.form.get("venue_id", show.venue_id)
         if name:
             show.name = name
+            # print("vhjhjhj")
+            # db.session.commit()
         if rating:
             show.rating=rating
         if tags:
@@ -575,9 +509,12 @@ class ShowResource(Resource):
         if time:
             show.time=time
         if available_tickets:
-            show.available_tickets=available_tickets
-
+            show.available_tickets=int(available_tickets)
+        print(request.json)    
+        print(rating,available_tickets)
+        # db.session.merge(show)
         db.session.commit()
+        # print(dir(show))
         
         return {'message': 'Show updated successfully'}, 200
 
@@ -592,6 +529,11 @@ class ShowResource(Resource):
         if not show:
             return {'message': 'Show not found'}, 404
 
+        current_session = db.session.object_session(show)
+        if current_session is not None and current_session != db.session:
+            # Detach the booking from the old session
+            current_session.expunge(show)
+            
         db.session.delete(show)
         db.session.commit()
 
@@ -723,6 +665,30 @@ class BookingsResource(Resource):
             return jsonify({'message': 'Booking not found',
                             'user': user.to_dict()})
         
+    # @jwt_required()
+    # def delete(self, bookingId):
+    #     user = User.query.get(get_jwt_identity())
+    #     if not user:
+    #         return {'message': 'Please log in'}, 401
+
+    #     booking = Booking.query.get(bookingId)
+    #     if not booking:
+    #         return {'message': 'Booking not found'}, 404
+
+    #     if booking.user_id != user.id:
+    #         return {'message': 'Unauthorized'}, 403
+
+    #     show = booking.show
+    #     show.available_tickets += booking.num_tickets
+    #     db.session.commit()
+
+    #     # Add cancellation logic here
+    #     # Example: Set booking status to cancelled or delete the booking from the database
+    #     db.session.delete(booking)
+    #     db.session.commit()
+
+    #     return {'message': 'Booking cancelled'}
+
     @jwt_required()
     def delete(self, bookingId):
         user = User.query.get(get_jwt_identity())
@@ -740,13 +706,17 @@ class BookingsResource(Resource):
         show.available_tickets += booking.num_tickets
         db.session.commit()
 
-        # Add cancellation logic here
-        # Example: Set booking status to cancelled or delete the booking from the database
+        # Check if the booking is attached to the current session
+        current_session = db.session.object_session(booking)
+        if current_session is not None and current_session != db.session:
+            # Detach the booking from the old session
+            current_session.expunge(booking)
+
+        # Delete the booking from the current session
         db.session.delete(booking)
         db.session.commit()
 
         return {'message': 'Booking cancelled'}
-
 
 
         
@@ -759,7 +729,7 @@ api.add_resource(SignupResource, '/signup')
 api.add_resource(AdminLoginResource,'/admin_login','/profile/<int:admin_id>','/delete_admin/<int:admin_id>')
 api.add_resource(UserLoginResource,'/user_login','/user_profile/<int:user_id>','/delete_user/<int:user_id>')
 api.add_resource(VenueResource, '/venues', '/venues/<int:venue_id>','/venue_mgt','/venue_mgt/delete/<int:venue_id>','/add_venue','/edit_venue/<int:venue_id>','/venue_mgt/<int:venue_id>')
-api.add_resource(ShowResource, '/shows', '/shows/<int:venue_id>','/show_mgt/<int:venue_id>','/edit_show/<int:show_id>','/show_mgt_venue/delete/<int:show_id>','/show_mgt/<int:venue_id>','/add_show/<int:venue_id>')
+api.add_resource(ShowResource, '/shows', '/shows/<int:venue_id>','/show_mgt/<int:venue_id>','/edit_show/<int:show_id>','/edit_show/<int:venue_id>/<int:show_id>','/show_mgt_venue/delete/<int:show_id>','/show_mgt/<int:venue_id>','/add_show/<int:venue_id>')
 api.add_resource(BookingFormResource, '/booking_form/<int:show_id>')
 api.add_resource(BookingsResource, '/bookings/<int:user_id>','/bookings/delete/<int:bookingId>', '/bookings/<int:user_id>/<int:booking_id>')
 
@@ -781,10 +751,195 @@ def venueDetailsDownload(venue_id,admin_id):
     
     return {'msg': "Done"}, 200
 
+'''
+A function which converts and returns the current time from datetime object to string in the HTML datetime-local format
 
+Another function to perform the reverse action. Convert string to datetime object!
+
+A 3rd function to give creation date 
+'''
+
+
+def current_timestamp():
+    current_time = dt.now()
+    datetime_str = current_time.strftime('%Y-%m-%dT%H:%M')  # Converts to a format of type - 2022-03-03T15:27
+    return datetime_str  # returning the string formatted current time stamp
+
+
+def convert_datetime(datetime_value):
+    from datetime import datetime
+
+    datetime_object = datetime.strptime(datetime_value, '%Y-%m-%dT%H:%M')  # 2022-03-03T15:27
+    return datetime_object
+
+
+def date_today():
+    return date.today()
+
+@celery.task(name="monthly_report")
+def monthly_report():
+    # last_month=(datetime.now()).month-1
+    now = datetime.datetime.now()
+    month = now.strftime('%B')
+    year = now.strftime('%Y')
+    today = date_today().strftime('%Y-%m-%d')
+    with app.app_context():
+        users=User.query.all()
+    print(users)
+    with open(r"templates/report_mail_temp.html") as file:
+        msg_temp = Template(file.read())
+
+    with open(r"templates/report.html") as file:
+        pdf_temp = Template(file.read())
+
+    done_users = []
+    for user_obj in users:
+        user = user_obj.username
+        print(user)
+        user_obj_bookings=Booking.query.filter_by(user_id=user_obj.id)
+        print(user_obj_bookings)
+        account_details = accountDetails(user_obj,user_obj_bookings)  # Function returns all required account details
+        bookings = bookingDetails(user_obj,user_obj_bookings)  
+        
+        message = msg_temp.render(user=user)
+        print("r15")
+        pdf_html = pdf_temp.render(today=str(today),
+                                month=month,
+                                account_details=account_details,
+                                bookings=bookings,
+                                
+                                username=user
+                                )
+        with open('xyz.html','w') as file:
+            file.write(pdf_html)
+        # breakpoint()
+        
+        sub = f"[MONTHLY REPORT] Ticketocks"
+        if user not in done_users:
+            # print("r17.0")
+            pdf_path = generate_pdf(usr=user, template='xyz.html')
+            # print("r17.1")
+            send_email(to_address=user_obj.email, subject=sub, message=message, attachment=pdf_path)
+            # print("r17.2")
+            done_users.append(user)
+        # print("r18")
+
+        print(f"------MONTHLY REPORT SENT FOR {user}---------")
+    return("report sent")
+    
+
+@celery.task(name="webhook")
+def webhook_chat():
+    message_headers = {'Content-Type': 'application/json; charset=UTF-8'}
+    http_obj = Http()
+    data = {'text': 'Reminder: Please visit/book something.'}
+
+    res = http_obj.request('https://chat.googleapis.com/v1/spaces/AAAAOZ2wYkA/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=Xnld14KF22pyg4Evuyo-xbLYhZ4ZZlW4MVvz75M-MkY', 
+                           method='POST', headers=message_headers, body=dumps(data))
+    print("Reminder sent. Response:", res)
+
+
+# logging.basicConfig(level=logging.INFO)
+# logger = logging.getLogger(__name__)
+
+
+@cache.memoize(timeout=120)
+def export_venue_to_csv(venue):
+    filename = "venue_" + current_timestamp() + ".csv"
+    filepath = f"static/venue_detailsDownload/{filename}"
+    with open(filepath, 'w', newline='') as venue_file:
+        fieldnames = ['venue_id', 'venue_name', 'venue_place', 'venue_capacity']
+        csv_writer = csv.DictWriter(venue_file, fieldnames=fieldnames)
+        csv_writer.writeheader()
+        csv_writer.writerow({
+            'venue_id': venue.id,
+            'venue_name': venue.name,
+            'venue_place': venue.place,
+            'venue_capacity': venue.capacity,
+        })
+
+    return filepath
+
+# @celery.task
+# @celery_inst.task()
+@cache.memoize(timeout=25)  # So that the user doesn't spam the download button
+def download_venueDetails(venue_id, username=None):
+    if username is not None:
+        venue_details = None
+        try:
+            #print("dvdline0")
+            print(username)
+            #print(Admin.query.all())
+            admin=Admin.query.filter_by(username=username).first()
+            print(admin)
+            to_email = admin.email
+            print(to_email)
+            #print("dvdline1")
+            venue = Venue.query.filter_by(id=venue_id).first()
+            filepath = export_venue_to_csv(venue)
+            with open(r"templates/download_ready.html") as file:
+                temp = Template(file.read())
+            sub = "[Venue Details DOWNLOAD READY] Ticketocks"
+            message = temp.render(user=username,venue=venue.name, file_type="Venue data")
+            print(message)
+            send_email(to_address=to_email, subject=sub, message=message, attachment=filepath)
+            alert("Mail sent successfully!", "success")
+
+            return {"msg": "Successful"}, 200
+
+        except:
+            return {"msg": "Failed1"}
+    else:
+        return {"msg": "Failed2"}
+
+ 
+
+SMTP_SERVER_HOST="localhost"
+
+SMTP_SERVER_PORT="1025"
+SENDER_ADDRESS="nats@email.com"
+SENDER_PASSWORD=""
+global s
+def send_email(to_address, subject, message, attachment):
+    # print("er0")
+    mail=MIMEMultipart()
+    mail["From"]=SENDER_ADDRESS
+    mail["To"]=to_address
+    mail["Subject"]=subject
+    # print("er1")
+    mail.attach(MIMEText(message, "html"))
+    print("er2")
+
+    if attachment is not None:
+        # print("er2.1")
+        with open(attachment, "rb") as attachment_file:
+            # print("er2.2")
+            part = MIMEBase("application", "octet-stream")
+            # print("er2.3")
+            part.set_payload(attachment_file.read())
+            # print("er2.4")
+            encoders.encode_base64(part)
+            # print("er2.5")
+            part.add_header("Content-Disposition", f"attachment; filename={attachment[len('static/venue_detailsDownload/'):]}")
+            mail.attach(part)
+            # print("er3")
+    # print("er4")
+    s=smtplib.SMTP(host=SMTP_SERVER_HOST, port=SMTP_SERVER_PORT)
+    # print("er4.1")
+    s.login(SENDER_ADDRESS,SENDER_PASSWORD)
+    # print("er4.2")
+    s.send_message(mail)
+    # print("er4.3")
+    s.quit()
+    # print("er4")
+    if attachment is not None:
+        abs_attachment_path = os.path.abspath(attachment)
+        os.remove(abs_attachment_path)
+    # print("er5")
+    return True
     
 
 if __name__=="__main__":
   
-  app.debug=True
-  app.run(port=8001)
+    app.debug=True
+    app.run(port=8001)

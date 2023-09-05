@@ -1057,7 +1057,7 @@ const Invoice = Vue.component('invoice', {
             })
             .then(data => {
               // Refresh the bookings after cancellation
-              this.fetchBookings();
+              // this.fetchBookings();
               console.log('Booking cancelled:', data);
               this.$router.push(`/bookings/${user_id}`)
               // Increase the number of available tickets for the show
@@ -1356,6 +1356,7 @@ const EditVenue = Vue.component('EditVenue', {
         place: this.venue.place,
         capacity: this.venue.capacity
       };
+      
 
       const auth_token = localStorage.getItem('authToken');
       fetch(`http://127.0.0.1:8001/edit_venue/${venue_id}`, {
@@ -1375,6 +1376,7 @@ const EditVenue = Vue.component('EditVenue', {
         .then(data => {
           console.log('Venue updated:', data);
           // Redirect to venue management page
+          this.fetchVenue();
           this.$router.push('/venue_mgt');
         })
         .catch(error => {
@@ -1428,6 +1430,7 @@ const ShowManagement_venue = Vue.component('ShowManagement_venue', {
         
         <button type="button" class="btn" @click="resetFilters">Reset</button>
       </form>
+      <p v-if="download" class="text-success">Mail sent successfully!</p>
 
       
 
@@ -1456,7 +1459,7 @@ const ShowManagement_venue = Vue.component('ShowManagement_venue', {
             <td>{{ show.ticket_price }}</td>
             <td>{{ show.available_tickets }}</td>
             <td>
-            <router-link :to="'/edit_show/' + show.id" class="btn btn-warning">Edit Show</router-link>
+            <router-link :to="'/edit_show/' + venue.id +'/'+ show.id" class="btn btn-warning">Edit Show</router-link>
             <button @click="deleteShow(show.id)" class="btn btn-danger">Delete</button>
             
             </td>
@@ -1478,7 +1481,8 @@ const ShowManagement_venue = Vue.component('ShowManagement_venue', {
         name: ''
       },
       tags:[],
-      admin_id:''
+      admin_id:'',
+      download:''
     };
   },
   computed: {
@@ -1518,6 +1522,7 @@ const ShowManagement_venue = Vue.component('ShowManagement_venue', {
       .then(data => {
         if (data['msg'] === "Done") {
           this.download = true;
+          // this.$toast.success('Venue details downloaded successfully!');
         }
       })
       .catch(error => {
@@ -1625,7 +1630,7 @@ const EditShow = Vue.component('EditShow', {
         </div>
         <div class="form-group">
           <label for="time">Show Time</label>
-          <input type="time" id="time" class="form-control" value="show.time" v-model="show.time" required>
+          <input type="time" id="time" class="form-control" v-model="show.time" required>
         </div>
         <div class="form-group">
           <label for="rating">Rating</label>
@@ -1671,12 +1676,12 @@ const EditShow = Vue.component('EditShow', {
         rating: this.show.rating,
         tags: this.show.tags,
         ticket_price: this.show.ticket_price,
-        available_tickets: this.show.available_tickets
-        
+        available_tickets: this.show.available_tickets 
       };
 
       const auth_token = localStorage.getItem('authToken');
-      fetch(`http://127.0.0.1:8001/edit_show/${showId}`, {
+      const venueId = this.$route.params.venue_id;
+      fetch(`http://127.0.0.1:8001/edit_show/${venueId}/${showId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -1693,7 +1698,8 @@ const EditShow = Vue.component('EditShow', {
         .then(data => {
           console.log('Show updated:', data);
           // Redirect to show management page
-          this.$router.push('/show_mgt/');
+          // this.$router.push('/show_mgt/');
+          this.$router.push('/show_mgt/' + venueId);
         })
         .catch(error => {
           console.error('Error updating show:', error);
@@ -1701,6 +1707,7 @@ const EditShow = Vue.component('EditShow', {
     },
     fetchShow() {
       const showId = this.$route.params.show_id;
+      const venueId = this.$route.params.venue_id;
       const auth_token = localStorage.getItem('authToken');
 
       fetch(`http://127.0.0.1:8001/edit_show/${showId}`, {
@@ -1715,8 +1722,9 @@ const EditShow = Vue.component('EditShow', {
           return response.json();
         })
         .then(data => {
-          console.log(data.show)
+          console.log(data)
           this.show = data.show;
+          console.log(this.show)
         })
         .catch(error => {
           console.error('Error fetching show data:', error);
@@ -1761,7 +1769,7 @@ const AddShow = Vue.component('AddShow', {
         <div class="form-group">
           <label for="available_tickets">Available Tickets:</label>
           <input type="number" name="available_tickets" id="available_tickets" v-model="show.available_tickets" class="form-control" required>
-          <p v-if="show.available_tickets > remainingCapacity" class="text-danger">Number of tickets exceeds venue capacity.</p>
+          
         </div>
         <div class="form-group">
           <label for="venue_name">Venue:</label>
@@ -1899,7 +1907,7 @@ const admin_Profile= Vue.component('profile',{
               
             </div>
             <h4 class="mb-2">{{ admin.username  }}</h4>
-            <p class="text-muted mb-4">@user <span class="mx-2">|</span> <a>
+            <p class="text-muted mb-4">Admin <span class="mx-2">|</span> <a>
                 {{ admin.email }}</a></p>
             
             <button type="button" class="btn btn-primary btn-rounded btn-lg" @click="deleteAccount(admin.id)" >
@@ -2026,7 +2034,7 @@ const user_Profile= Vue.component('profile',{
               
             </div>
             <h4 class="mb-2">{{ user.username  }}</h4>
-            <p class="text-muted mb-4">@admin <span class="mx-2">|</span> <a>
+            <p class="text-muted mb-4">User <span class="mx-2">|</span> <a>
                 {{ user.email }}</a></p>
             
             <button type="button" class="btn btn-primary btn-rounded btn-lg" @click="deleteAccount(user.id)" >
@@ -2157,12 +2165,19 @@ const Navbar = Vue.component('navbar', {
     </div>
     <ul class="navbar-links">
       <li v-if=username><b><h5>Hi,{{ username }}!</h5></b></li>
+
       <li v-if="userType === 'admin'"><router-link :to="'/admin_profile/' + admin_id">My Profile</router-link></li>
+
       <li v-if="userType === 'user'"><router-link :to="'/user_profile/' + user_id">My Profile</router-link></li>
+
       <li v-if="userType === 'user'"><router-link to="/user_dashboard">Home</router-link></li>
+
       <li v-if="userType === 'user'"><router-link :to="'/bookings/' + user_id">My Bookings</router-link></li>
+
       <li v-if="userType === 'admin'"><router-link to="/admin_dashboard">Home</router-link></li>
+
       <li v-if="userType === 'admin'"><router-link to="/venue_mgt">Venue Management</router-link></li>
+
       <li v-if="userType === 'admin'"><button @click="logout()" class="btn btn-danger">Logout</button></li>
       <li v-if="userType === 'user'"><button @click="logout()" class="btn btn-danger">Logout</button></li>
     </ul>
@@ -2200,7 +2215,7 @@ const Navbar = Vue.component('navbar', {
     this.username = localStorage.getItem('username'); // Example: Set the username
     this.userType = localStorage.getItem('user_type'); // Example: Set the user type
     this.user_id = localStorage.getItem('user_id'); 
-    this.admin_id = localStorage.getItem('admin_id'); 
+    this.admin_id = localStorage.getItem('user_id'); 
 
   }
 });
@@ -2304,7 +2319,7 @@ const Navbar = Vue.component('navbar', {
     },
 
     {
-      path:'/edit_show/:show_id',
+      path:'/edit_show/:venue_id/:show_id',
       component:EditShow
     },
 
